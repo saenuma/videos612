@@ -1,4 +1,4 @@
-package l8f
+package videos612
 
 const (
 	VIDEO_FRAME_FORMAT = ".jpg"
