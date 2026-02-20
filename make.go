@@ -1,7 +1,7 @@
 package l8f
 
 import (
-	"crypto/sha256"
+	"bytes"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTemp, error) {
-	vlt := MakeVideoLumpTemp{}
+func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTemp2, error) {
+	vlt := MakeVideoLumpTemp2{}
 	dirFIs, err := os.ReadDir(inFramesDirectory)
 	if err != nil {
 		return vlt, errors.Wrap(err, "os error")
@@ -69,43 +69,45 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 	if err != nil {
 		return vlt, errors.Wrap(err, "os error")
 	}
-	uniqueFrames := make([]UniqueFrameDetails, 0) //first frame no and the size
+	uniqueFrames := make([]UniqueFrameDetailsNoHash, 0) //first frame no and the size
 	framesPointer := make(map[int]int)
+
+	checkForUniqueness := func(uniqueFrames []UniqueFrameDetailsNoHash, framePath string) (UniqueFrameDetailsNoHash, error) {
+		rawCurrentFrame, _ := os.ReadFile(framePath)
+
+		for _, uniqueFrameDetail := range uniqueFrames {
+			rawUniqueFrame, _ := os.ReadFile(uniqueFrameDetail.FramePath)
+			retCompare := bytes.Compare(rawCurrentFrame, rawUniqueFrame)
+			if retCompare == 0 {
+				return uniqueFrameDetail, nil
+			}
+		}
+
+		return UniqueFrameDetailsNoHash{}, errors.New("frame not found")
+	}
+
 	for _, inFrameNumber := range inFrameNumbers {
 		currentFramePath := filepath.Join(inFramesDirectory, fmt.Sprintf("%d%s", inFrameNumber, VIDEO_FRAME_FORMAT))
-		currentFrameHandle, err := os.Open(currentFramePath)
-		if err != nil {
-			return vlt, errors.Wrap(err, "os error")
-		}
-		defer currentFrameHandle.Close()
 
-		hashHandle := sha256.New()
-		if _, err := io.Copy(hashHandle, currentFrameHandle); err != nil {
-			return vlt, errors.Wrap(err, "io error")
-		}
-		hashOfCurrentFile := fmt.Sprintf("%x", hashHandle.Sum(nil))
-
-		currentFrameHandle2, err := os.Open(currentFramePath)
-		if err != nil {
-			return vlt, errors.Wrap(err, "os error")
-		}
-		defer currentFrameHandle2.Close()
-
-		ufq, err := findInUniqueFramesSlice(uniqueFrames, hashOfCurrentFile)
+		ufq, err := checkForUniqueness(uniqueFrames, currentFramePath)
 		if err == nil {
 			framesPointer[inFrameNumber] = ufq.FirstFrameNumber
 		} else {
-			writtenSize, err := io.Copy(outFileHandle, currentFrameHandle2)
+			currentFrameHandle, err := os.Open(currentFramePath)
+			if err != nil {
+				return vlt, errors.Wrap(err, "os error")
+			}
+			writtenSize, err := io.Copy(outFileHandle, currentFrameHandle)
 			if err != nil {
 				return vlt, errors.Wrap(err, "io error")
 			}
-			uniqueFrames = append(uniqueFrames, UniqueFrameDetails{hashOfCurrentFile, inFrameNumber, int(writtenSize)})
+			uniqueFrames = append(uniqueFrames, UniqueFrameDetailsNoHash{inFrameNumber, int(writtenSize), currentFramePath})
 			framesPointer[inFrameNumber] = inFrameNumber
 		}
 	}
 	outFileHandle.Close()
 
-	return MakeVideoLumpTemp{uniqueFrames, framesPointer}, nil
+	return MakeVideoLumpTemp2{uniqueFrames, framesPointer}, nil
 }
 
 // MakeL8F is good for videos with a lot of stills eg. lyrics videos with a single background.
