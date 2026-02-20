@@ -110,10 +110,10 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 	return MakeVideoLumpTemp2{uniqueFrames, framesPointer}, nil
 }
 
-// MakeL8F is good for videos with a lot of stills eg. lyrics videos with a single background.
+// MakeVideo is good for videos with a lot of stills eg. lyrics videos with a single background.
 // the inFramesDirectory must contain png files numbered from 1.png upwards
 // the framerate must be stored in the **meta** as a string
-func MakeL8F(inVideoFramesPath, inAudioFile string, meta map[string]string, tmpVideoDirectory, outFilePath string) error {
+func MakeVideo(inVideoFramesPath, inAudioFile string, meta map[string]string, tmpVideoDirectory, outFilePath string) error {
 	if !doesPathExists(inVideoFramesPath) {
 		return errors.New(fmt.Sprintf("the path '%s' does not exists", inVideoFramesPath))
 	}
