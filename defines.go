@@ -1,14 +1,17 @@
 package l8f
 
+const (
+	VIDEO_FRAME_FORMAT = ".jpg"
+	AUDIO_FORMAT       = ".flac"
+	OUTPUT_FORMAT      = ".v612"
+)
+
 type VideoHeader struct {
-	Meta               map[string]string
-	LaptopUniqueFrames [][]int
-	LaptopFrames       map[int]int
-	MobileUniqueFrames [][]int
-	MobileFrames       map[int]int
-	AudioSize          int
-	LaptopVideoSize    int
-	MobileVideoSize    int
+	Meta              map[string]string
+	VideoUniqueFrames [][]int
+	VideoFrames       map[int]int
+	AudioSize         int
+	VideoFramesSize   int
 }
 
 type UniqueFrameDetails struct {

@@ -17,8 +17,8 @@ func getHeaderLengthFromVideo(inVideoPath string) (int, error) {
 	if !doesPathExists(inVideoPath) {
 		return 0, errors.New(fmt.Sprintf("the path '%s' does not exists", inVideoPath))
 	}
-	if !strings.HasSuffix(inVideoPath, ".l8f") {
-		return 0, errors.New("The inVideoPath must be of type 'l8f'")
+	if !strings.HasSuffix(inVideoPath, OUTPUT_FORMAT) {
+		return 0, errors.New(fmt.Sprintf("The inVideoPath must be of type '%s'", OUTPUT_FORMAT))
 	}
 
 	rawVideoHandle, err := os.Open(inVideoPath)
@@ -57,8 +57,8 @@ func ReadHeaderFromVideo(inVideoPath string) (VideoHeader, error) {
 	if !doesPathExists(inVideoPath) {
 		return evh, errors.New(fmt.Sprintf("the path '%s' does not exists", inVideoPath))
 	}
-	if !strings.HasSuffix(inVideoPath, ".l8f") {
-		return evh, errors.New("The inVideoPath must be of type 'l8f'")
+	if !strings.HasSuffix(inVideoPath, OUTPUT_FORMAT) {
+		return evh, errors.New(fmt.Sprintf("The inVideoPath must be of type '%s'", OUTPUT_FORMAT))
 	}
 
 	rawVideoHandle, err := os.Open(inVideoPath)
@@ -99,14 +99,14 @@ func ReadHeaderFromVideo(inVideoPath string) (VideoHeader, error) {
 		evh.Meta = meta
 	}
 
-	luniqueFramesBeginPart := strings.Index(headerStr, "laptop_unique_frames:")
-	luniqueFramesEndPart := strings.Index(headerStr[luniqueFramesBeginPart:], "::")
-	if luniqueFramesEndPart == -1 {
-		return evh, errors.New("Bad Header: laptop_unique_frames section must end with a '::'.")
+	vUniqueFramesBeginPart := strings.Index(headerStr, "video_unique_frames:")
+	vUniqueFramesEndPart := strings.Index(headerStr[vUniqueFramesBeginPart:], "::")
+	if vUniqueFramesEndPart == -1 {
+		return evh, errors.New("Bad Header: video_unique_frames section must end with a '::'.")
 	}
-	luniqueFramesPart := headerStr[luniqueFramesBeginPart+len("laptop_unique_frames:\n") : luniqueFramesBeginPart+luniqueFramesEndPart]
-	luniqueFrames := make([][]int, 0)
-	for _, line := range strings.Split(luniqueFramesPart, "\n") {
+	vUniqueFramesPart := headerStr[vUniqueFramesBeginPart+len("video_unique_frames:\n") : vUniqueFramesBeginPart+vUniqueFramesEndPart]
+	vUniqueFrames := make([][]int, 0)
+	for _, line := range strings.Split(vUniqueFramesPart, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -121,18 +121,18 @@ func ReadHeaderFromVideo(inVideoPath string) (VideoHeader, error) {
 			return evh, errors.Wrap(err, "strconv error")
 		}
 
-		luniqueFrames = append(luniqueFrames, []int{f1, f2})
+		vUniqueFrames = append(vUniqueFrames, []int{f1, f2})
 	}
-	evh.LaptopUniqueFrames = luniqueFrames
+	evh.VideoUniqueFrames = vUniqueFrames
 
-	lframesBeginPart := strings.LastIndex(headerStr, "laptop_frames:")
-	lframesEndPart := strings.Index(headerStr[lframesBeginPart:], "::")
-	if lframesEndPart == -1 {
-		return evh, errors.New("Bad Header: laptop_frames section must end with a '::'.")
+	vFramesBeginPart := strings.LastIndex(headerStr, "video_frames:")
+	vFramesEndPart := strings.Index(headerStr[vFramesBeginPart:], "::")
+	if vFramesEndPart == -1 {
+		return evh, errors.New("Bad Header: video_frames section must end with a '::'.")
 	}
-	lframesPart := headerStr[lframesBeginPart+len("laptop_frames:\n") : lframesEndPart+lframesBeginPart]
-	lframes := make(map[int]int)
-	for _, line := range strings.Split(lframesPart, "\n") {
+	vFramesPart := headerStr[vFramesBeginPart+len("video_frames:\n") : vFramesEndPart+vFramesBeginPart]
+	vFrames := make(map[int]int)
+	for _, line := range strings.Split(vFramesPart, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -146,60 +146,9 @@ func ReadHeaderFromVideo(inVideoPath string) (VideoHeader, error) {
 		if err != nil {
 			return evh, errors.Wrap(err, "strconv error")
 		}
-		lframes[frame1Int] = frame2Int
+		vFrames[frame1Int] = frame2Int
 	}
-	evh.LaptopFrames = lframes
-
-	muniqueFramesBeginPart := strings.Index(headerStr, "mobile_unique_frames:")
-	muniqueFramesEndPart := strings.Index(headerStr[muniqueFramesBeginPart:], "::")
-	if muniqueFramesEndPart == -1 {
-		return evh, errors.New("Bad Header: mobile_unique_frames section must end with a '::'.")
-	}
-	muniqueFramesPart := headerStr[muniqueFramesBeginPart+len("mobile_unique_frames:\n") : muniqueFramesBeginPart+muniqueFramesEndPart]
-	muniqueFrames := make([][]int, 0)
-	for _, line := range strings.Split(muniqueFramesPart, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		partsOfLine := strings.Split(line, ":")
-		f1, err := strconv.Atoi(strings.TrimSpace(partsOfLine[0]))
-		if err != nil {
-			return evh, errors.Wrap(err, "strconv error")
-		}
-		f2, err := strconv.Atoi(strings.TrimSpace(partsOfLine[1]))
-		if err != nil {
-			return evh, errors.Wrap(err, "strconv error")
-		}
-
-		muniqueFrames = append(muniqueFrames, []int{f1, f2})
-	}
-	evh.MobileUniqueFrames = muniqueFrames
-
-	mframesBeginPart := strings.LastIndex(headerStr, "mobile_frames:")
-	mframesEndPart := strings.Index(headerStr[mframesBeginPart:], "::")
-	if mframesEndPart == -1 {
-		return evh, errors.New("Bad Header: mobile_frames section must end with a '::'.")
-	}
-	mframesPart := headerStr[mframesBeginPart+len("mobile_frames:\n") : mframesEndPart+mframesBeginPart]
-	mframes := make(map[int]int)
-	for _, line := range strings.Split(mframesPart, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		partsOfLine := strings.Split(line, ":")
-		frame1Int, err := strconv.Atoi(partsOfLine[0])
-		if err != nil {
-			return evh, errors.Wrap(err, "strconv error")
-		}
-		frame2Int, err := strconv.Atoi(strings.TrimSpace(partsOfLine[1]))
-		if err != nil {
-			return evh, errors.Wrap(err, "strconv error")
-		}
-		mframes[frame1Int] = frame2Int
-	}
-	evh.MobileFrames = mframes
+	evh.VideoFrames = vFrames
 
 	binaryBeginPart := strings.Index(headerStr, "binary:")
 	binaryEndPart := strings.Index(headerStr[binaryBeginPart:], "::")
@@ -209,28 +158,21 @@ func ReadHeaderFromVideo(inVideoPath string) (VideoHeader, error) {
 	binaryPart := headerStr[binaryBeginPart+len("binary:\n") : binaryBeginPart+binaryEndPart]
 	partsOfBinaryPart := strings.Split(binaryPart, "\n")
 	audioPart := partsOfBinaryPart[0]
-	lvideoPart := partsOfBinaryPart[1]
-	mVideoPart := partsOfBinaryPart[2]
+	videoFramesPart := partsOfBinaryPart[1]
 
 	audioSizeStr := audioPart[len("audio: "):]
 	audioSizeInt, err := strconv.Atoi(audioSizeStr)
 	if err != nil {
 		return evh, errors.Wrap(err, "strconv error")
 	}
-	lvideoSizeStr := lvideoPart[len("laptop_frames_lump: "):]
-	lvideoSizeInt, err := strconv.Atoi(lvideoSizeStr)
-	if err != nil {
-		return evh, errors.Wrap(err, "strconv error")
-	}
-	mvideoSizeStr := mVideoPart[len("mobile_frames_lump: "):]
-	mvideoSizeInt, err := strconv.Atoi(mvideoSizeStr)
+	videoFramesSizeStr := videoFramesPart[len("video_frames_lump: "):]
+	videoFramesSizeInt, err := strconv.Atoi(videoFramesSizeStr)
 	if err != nil {
 		return evh, errors.Wrap(err, "strconv error")
 	}
 
 	evh.AudioSize = audioSizeInt
-	evh.LaptopVideoSize = lvideoSizeInt
-	evh.MobileVideoSize = mvideoSizeInt
+	evh.VideoFramesSize = videoFramesSizeInt
 
 	return evh, nil
 }
@@ -283,7 +225,7 @@ func ReadLaptopFrame(inVideoPath string, seconds int) (*image.Image, error) {
 	defer rawVideoHandle.Close()
 
 	audioOffset := vhSize + 1 + len(fmt.Sprintf("%d", vhSize))
-	videoBytes := make([]byte, vh.LaptopVideoSize)
+	videoBytes := make([]byte, vh.VideoFramesSize)
 	videoOffset := audioOffset + vh.AudioSize
 	_, err = rawVideoHandle.ReadAt(videoBytes, int64(videoOffset))
 	if err != nil {
@@ -291,77 +233,19 @@ func ReadLaptopFrame(inVideoPath string, seconds int) (*image.Image, error) {
 	}
 
 	allFrames := make([]int, 0)
-	for k := range vh.LaptopFrames {
+	for k := range vh.VideoFrames {
 		allFrames = append(allFrames, k)
 	}
 
 	sort.Ints(allFrames)
 
-	pointedToFrameNumber := vh.LaptopFrames[seconds]
+	pointedToFrameNumber := vh.VideoFrames[seconds]
 
 	// unpack the right frame
 	readFrameOffset := 0
 	toReadSize := 0
 
-	for _, uniqueFrameDetails := range vh.LaptopUniqueFrames {
-		if uniqueFrameDetails[0] == pointedToFrameNumber {
-			toReadSize = int(uniqueFrameDetails[1])
-			break
-		} else {
-			readFrameOffset += int(uniqueFrameDetails[1])
-		}
-	}
-
-	currentFrameBytes := videoBytes[readFrameOffset : readFrameOffset+toReadSize]
-	img, _, err := image.Decode(bytes.NewReader(currentFrameBytes))
-	if err != nil {
-		return nil, errors.Wrap(err, "image error")
-	}
-
-	return &img, nil
-}
-
-// Read frame for 1 seconds, starting from the 'seconds' parameter
-// 'seconds' parameter starts from 1
-func ReadMobileFrame(inVideoPath string, seconds int) (*image.Image, error) {
-	vhSize, err := getHeaderLengthFromVideo(inVideoPath)
-	if err != nil {
-		return nil, err
-	}
-
-	vh, err := ReadHeaderFromVideo(inVideoPath)
-	if err != nil {
-		return nil, err
-	}
-
-	rawVideoHandle, err := os.Open(inVideoPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "os error")
-	}
-	defer rawVideoHandle.Close()
-
-	audioOffset := vhSize + 1 + len(fmt.Sprintf("%d", vhSize))
-	videoBytes := make([]byte, vh.MobileVideoSize)
-	videoOffset := audioOffset + vh.AudioSize + vh.LaptopVideoSize
-	_, err = rawVideoHandle.ReadAt(videoBytes, int64(videoOffset))
-	if err != nil {
-		return nil, errors.Wrap(err, "strconv error")
-	}
-
-	allFrames := make([]int, 0)
-	for k := range vh.MobileFrames {
-		allFrames = append(allFrames, k)
-	}
-
-	sort.Ints(allFrames)
-
-	pointedToFrameNumber := vh.MobileFrames[seconds]
-
-	// unpack the right frame
-	readFrameOffset := 0
-	toReadSize := 0
-
-	for _, uniqueFrameDetails := range vh.MobileUniqueFrames {
+	for _, uniqueFrameDetails := range vh.VideoUniqueFrames {
 		if uniqueFrameDetails[0] == pointedToFrameNumber {
 			toReadSize = int(uniqueFrameDetails[1])
 			break
@@ -385,8 +269,8 @@ func GetVideoLength(inVideoPath string) (int, error) {
 	if !doesPathExists(inVideoPath) {
 		return 0, errors.New(fmt.Sprintf("the path '%s' does not exists", inVideoPath))
 	}
-	if !strings.HasSuffix(inVideoPath, ".l8f") {
-		return 0, errors.New("The inVideoPath must be of type 'l8f'")
+	if !strings.HasSuffix(inVideoPath, OUTPUT_FORMAT) {
+		return 0, errors.New(fmt.Sprintf("The inVideoPath must be of type '%s'", OUTPUT_FORMAT))
 	}
 
 	vh, err := ReadHeaderFromVideo(inVideoPath)
@@ -394,5 +278,5 @@ func GetVideoLength(inVideoPath string) (int, error) {
 		return 0, err
 	}
 
-	return len(vh.LaptopFrames), nil
+	return len(vh.VideoFrames), nil
 }

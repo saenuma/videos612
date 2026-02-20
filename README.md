@@ -34,8 +34,7 @@ video_frames:
 ::
 binary:
 audio: {audio_size_bytes}
-video_frames_lump: {laptop_video_size_bytes}
-mobile_frames_lump: {mobile_video_size_bytes}
+video_frames_lump: {video_frames_size_bytes}
 ::
 ```
 

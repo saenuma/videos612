@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"image"
-	_ "image/png"
+	_ "image/jpeg"
 	"io"
 	"os"
 	"path/filepath"
@@ -27,7 +27,7 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 		if dirFI.IsDir() {
 			return vlt, errors.New(fmt.Sprintf("the inFramesDirectory '%s' must not contain any subfolder", inFramesDirectory))
 		}
-		inFrameNameInt, err := strconv.Atoi(strings.ReplaceAll(dirFI.Name(), ".png", ""))
+		inFrameNameInt, err := strconv.Atoi(strings.ReplaceAll(dirFI.Name(), VIDEO_FRAME_FORMAT, ""))
 		if err != nil {
 			return vlt, errors.New(fmt.Sprintf("the file '%s' of inFramesDirectory '%s' is not a number", dirFI.Name(), inFramesDirectory))
 		}
@@ -36,9 +36,9 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 
 	sort.Ints(inFrameNumbers)
 
-	firstFrameHandle, err := os.Open(filepath.Join(inFramesDirectory, "1.png"))
+	firstFrameHandle, err := os.Open(filepath.Join(inFramesDirectory, "1"+VIDEO_FRAME_FORMAT))
 	if err != nil {
-		return vlt, errors.New(fmt.Sprintf("the inFramesDirectory '%s' has no '1.png'", inFramesDirectory))
+		return vlt, errors.New(fmt.Sprintf("the inFramesDirectory '%s' has no '1%s'", inFramesDirectory, VIDEO_FRAME_FORMAT))
 	}
 	im, _, err := image.DecodeConfig(firstFrameHandle)
 	if err != nil {
@@ -50,7 +50,7 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 
 	// validate same width and height of all the frames
 	for _, inFrameNumber := range inFrameNumbers {
-		currentFramePath := filepath.Join(inFramesDirectory, fmt.Sprintf("%d.png", inFrameNumber))
+		currentFramePath := filepath.Join(inFramesDirectory, fmt.Sprintf("%d%s", inFrameNumber, VIDEO_FRAME_FORMAT))
 		currentFrameHandle, err := os.Open(currentFramePath)
 		if err != nil {
 			return vlt, errors.Wrap(err, "os error")
@@ -72,7 +72,7 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 	uniqueFrames := make([]UniqueFrameDetails, 0) //first frame no and the size
 	framesPointer := make(map[int]int)
 	for _, inFrameNumber := range inFrameNumbers {
-		currentFramePath := filepath.Join(inFramesDirectory, fmt.Sprintf("%d.png", inFrameNumber))
+		currentFramePath := filepath.Join(inFramesDirectory, fmt.Sprintf("%d%s", inFrameNumber, VIDEO_FRAME_FORMAT))
 		currentFrameHandle, err := os.Open(currentFramePath)
 		if err != nil {
 			return vlt, errors.Wrap(err, "os error")
@@ -111,16 +111,15 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 // MakeL8F is good for videos with a lot of stills eg. lyrics videos with a single background.
 // the inFramesDirectory must contain png files numbered from 1.png upwards
 // the framerate must be stored in the **meta** as a string
-func MakeL8F(inFramesLaptopDirectory, inFramesMobileDirectory, inAudioFile string,
-	meta map[string]string, tmpVideoDirectory, outFilePath string) error {
-	if !doesPathExists(inFramesLaptopDirectory) {
-		return errors.New(fmt.Sprintf("the path '%s' does not exists", inFramesLaptopDirectory))
+func MakeL8F(inVideoFramesPath, inAudioFile string, meta map[string]string, tmpVideoDirectory, outFilePath string) error {
+	if !doesPathExists(inVideoFramesPath) {
+		return errors.New(fmt.Sprintf("the path '%s' does not exists", inVideoFramesPath))
 	}
-	if !strings.HasSuffix(inAudioFile, ".mp3") {
-		return errors.New("The inAudioFile must be of type 'mp3'")
+	if !strings.HasSuffix(inAudioFile, AUDIO_FORMAT) {
+		return errors.New(fmt.Sprintf("The inAudioFile must be of type '%s'", AUDIO_FORMAT))
 	}
-	if !strings.HasSuffix(outFilePath, ".l8f") {
-		return errors.New("The outFilePath must end with '.l8f'")
+	if !strings.HasSuffix(outFilePath, OUTPUT_FORMAT) {
+		return errors.New(fmt.Sprintf("The outFilePath must end with '%s'", OUTPUT_FORMAT))
 	}
 
 	for k, v := range meta {
@@ -132,15 +131,9 @@ func MakeL8F(inFramesLaptopDirectory, inFramesMobileDirectory, inAudioFile strin
 		}
 	}
 
-	laptopLumpPath := filepath.Join(tmpVideoDirectory, ".tmp_"+untestedRandomString(10)+".bin")
-	mobileLumpPath := filepath.Join(tmpVideoDirectory, ".tmp_"+untestedRandomString(10)+".bin")
+	videoFramesLumpPath := filepath.Join(tmpVideoDirectory, ".tmp_"+untestedRandomString(10)+".bin")
 
-	lvlt, err := makeFramesLumpFile(inFramesLaptopDirectory, laptopLumpPath)
-	if err != nil {
-		panic(err)
-	}
-
-	mvlt, err := makeFramesLumpFile(inFramesMobileDirectory, mobileLumpPath)
+	lvlt, err := makeFramesLumpFile(inVideoFramesPath, videoFramesLumpPath)
 	if err != nil {
 		panic(err)
 	}
@@ -152,30 +145,16 @@ func MakeL8F(inFramesLaptopDirectory, inFramesMobileDirectory, inAudioFile strin
 	}
 	outStr += "::\n"
 
-	// write laptop_unique_frames
-	outStr += "laptop_unique_frames:\n"
+	// write video_unique_frames
+	outStr += "video_unique_frames:\n"
 	for _, ufq := range lvlt.UniqueFrames {
 		outStr += fmt.Sprintf("%d: %d\n", ufq.FirstFrameNumber, ufq.Size)
 	}
 	outStr += "::\n"
 
-	// write laptop frames info
-	outStr += "laptop_frames:\n"
+	// write video_frames info
+	outStr += "video_frames:\n"
 	for frameNumber, pointedToFrameNumber := range lvlt.FramesPointerToUniqueFrames {
-		outStr += fmt.Sprintf("%d: %d\n", frameNumber, pointedToFrameNumber)
-	}
-	outStr += "::\n"
-
-	// write mobile_unique_frames
-	outStr += "mobile_unique_frames:\n"
-	for _, ufq := range mvlt.UniqueFrames {
-		outStr += fmt.Sprintf("%d: %d\n", ufq.FirstFrameNumber, ufq.Size)
-	}
-	outStr += "::\n"
-
-	// write mobile frames info
-	outStr += "mobile_frames:\n"
-	for frameNumber, pointedToFrameNumber := range mvlt.FramesPointerToUniqueFrames {
 		outStr += fmt.Sprintf("%d: %d\n", frameNumber, pointedToFrameNumber)
 	}
 	outStr += "::\n"
@@ -187,17 +166,12 @@ func MakeL8F(inFramesLaptopDirectory, inFramesMobileDirectory, inAudioFile strin
 		return errors.Wrap(err, "os error")
 	}
 
-	laptopLumpPathStat, err := os.Stat(laptopLumpPath)
-	if err != nil {
-		return errors.Wrap(err, "os error")
-	}
-	mobileLumpPathStat, err := os.Stat(mobileLumpPath)
+	videoFramesLumpPathStat, err := os.Stat(videoFramesLumpPath)
 	if err != nil {
 		return errors.Wrap(err, "os error")
 	}
 	outStr += fmt.Sprintf("audio: %d\n", inAudioFileStat.Size())
-	outStr += fmt.Sprintf("laptop_frames_lump: %d\n", laptopLumpPathStat.Size())
-	outStr += fmt.Sprintf("mobile_frames_lump: %d\n", mobileLumpPathStat.Size())
+	outStr += fmt.Sprintf("video_frames_lump: %d\n", videoFramesLumpPathStat.Size())
 	outStr += "::\n"
 
 	outVideoHandle, err := os.OpenFile(outFilePath, os.O_RDWR|os.O_CREATE, 0755)
@@ -217,29 +191,18 @@ func MakeL8F(inFramesLaptopDirectory, inFramesMobileDirectory, inAudioFile strin
 	if err != nil {
 		return errors.Wrap(err, "io error")
 	}
-	laptopLumpPathHandle, err := os.Open(laptopLumpPath)
+	videoFramesLumpPathHandle, err := os.Open(videoFramesLumpPath)
 	if err != nil {
 		return errors.Wrap(err, "os error")
 	}
-	defer laptopLumpPathHandle.Close()
-	_, err = io.Copy(outVideoHandle, laptopLumpPathHandle)
-	if err != nil {
-		return errors.Wrap(err, "io error")
-	}
-
-	mobileLumpPathHandle, err := os.Open(mobileLumpPath)
-	if err != nil {
-		return errors.Wrap(err, "os error")
-	}
-	defer mobileLumpPathHandle.Close()
-	_, err = io.Copy(outVideoHandle, mobileLumpPathHandle)
+	defer videoFramesLumpPathHandle.Close()
+	_, err = io.Copy(outVideoHandle, videoFramesLumpPathHandle)
 	if err != nil {
 		return errors.Wrap(err, "io error")
 	}
 
 	// cleanup
-	os.Remove(laptopLumpPath)
-	os.Remove(mobileLumpPath)
+	os.Remove(videoFramesLumpPath)
 
 	return nil
 }
@@ -254,8 +217,8 @@ func UpdateMeta(inVideoPath string, meta map[string]string, tmpVideoDirectory, o
 			return errors.New("The meta elements must not contain ':' ")
 		}
 	}
-	if !strings.HasSuffix(outFilePath, ".l8f") {
-		return errors.New("The outFilePath must end with '.l8f'")
+	if !strings.HasSuffix(outFilePath, ".v612") {
+		return errors.New("The outFilePath must end with '.v612'")
 	}
 	vhSize, err := getHeaderLengthFromVideo(inVideoPath)
 	if err != nil {
@@ -277,15 +240,9 @@ func UpdateMeta(inVideoPath string, meta map[string]string, tmpVideoDirectory, o
 	if err != nil {
 		return errors.Wrap(err, "strconv error")
 	}
-	laptopVideoBytes := make([]byte, vh.LaptopVideoSize)
+	videoFramesBytes := make([]byte, vh.VideoFramesSize)
 	laptopVideoOffset := audioOffset + vh.AudioSize
-	_, err = rawVideoHandle.ReadAt(laptopVideoBytes, int64(laptopVideoOffset))
-	if err != nil {
-		return errors.Wrap(err, "strconv error")
-	}
-	mobileVideoBytes := make([]byte, vh.MobileVideoSize)
-	mobileVideoOffset := audioOffset + vh.AudioSize + vh.LaptopVideoSize
-	_, err = rawVideoHandle.ReadAt(mobileVideoBytes, int64(mobileVideoOffset))
+	_, err = rawVideoHandle.ReadAt(videoFramesBytes, int64(laptopVideoOffset))
 	if err != nil {
 		return errors.Wrap(err, "strconv error")
 	}
@@ -296,34 +253,21 @@ func UpdateMeta(inVideoPath string, meta map[string]string, tmpVideoDirectory, o
 	}
 	outStr += "::\n"
 	// write unique_frames
-	outStr += "laptop_unique_frames:\n"
-	for _, ufq := range vh.LaptopUniqueFrames {
+	outStr += "video_unique_frames:\n"
+	for _, ufq := range vh.VideoUniqueFrames {
 		outStr += fmt.Sprintf("%d: %d\n", ufq[0], ufq[1])
 	}
 	outStr += "::\n"
 	// write frames info
-	outStr += "laptop_frames:\n"
-	for frameNumber, pointedToFrameNumber := range vh.LaptopFrames {
-		outStr += fmt.Sprintf("%d: %d\n", frameNumber, pointedToFrameNumber)
-	}
-	outStr += "::\n"
-	// write unique_frames
-	outStr += "mobile_unique_frames:\n"
-	for _, ufq := range vh.MobileUniqueFrames {
-		outStr += fmt.Sprintf("%d: %d\n", ufq[0], ufq[1])
-	}
-	outStr += "::\n"
-	// write frames info
-	outStr += "mobile_frames:\n"
-	for frameNumber, pointedToFrameNumber := range vh.MobileFrames {
+	outStr += "video_frames:\n"
+	for frameNumber, pointedToFrameNumber := range vh.VideoFrames {
 		outStr += fmt.Sprintf("%d: %d\n", frameNumber, pointedToFrameNumber)
 	}
 	outStr += "::\n"
 	// write lumps
 	outStr += "binary:\n"
 	outStr += fmt.Sprintf("audio: %d\n", vh.AudioSize)
-	outStr += fmt.Sprintf("laptop_frames_lump: %d\n", vh.LaptopVideoSize)
-	outStr += fmt.Sprintf("mobile_frames_lump: %d\n", vh.MobileVideoSize)
+	outStr += fmt.Sprintf("video_frames_lump: %d\n", vh.VideoFramesSize)
 	outStr += "::\n"
 	outVideoHandle, err := os.OpenFile(outFilePath, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
@@ -333,7 +277,6 @@ func UpdateMeta(inVideoPath string, meta map[string]string, tmpVideoDirectory, o
 	outVideoHandle.WriteString(fmt.Sprintf("%d\n", len(outStr)))
 	outVideoHandle.WriteString(outStr)
 	outVideoHandle.Write(audioBytes)
-	outVideoHandle.Write(laptopVideoBytes)
-	outVideoHandle.Write(mobileVideoBytes)
+	outVideoHandle.Write(videoFramesBytes)
 	return nil
 }
