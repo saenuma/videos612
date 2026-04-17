@@ -14,12 +14,12 @@ type VideoHeader struct {
 	VideoFramesSize   int
 }
 
-type MakeVideoLumpTemp2 struct {
-	UniqueFrames                []UniqueFrameDetailsNoHash
+type makeVideoLumpTemp2 struct {
+	UniqueFrames                []uniqueFrameDetails
 	FramesPointerToUniqueFrames map[int]int
 }
 
-type UniqueFrameDetailsNoHash struct {
+type uniqueFrameDetails struct {
 	FirstFrameNumber int
 	Size             int
 	FramePath        string

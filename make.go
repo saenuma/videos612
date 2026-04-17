@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTemp2, error) {
-	vlt := MakeVideoLumpTemp2{}
+func makeFramesLumpFile(inFramesDirectory, outFilePath string) (makeVideoLumpTemp2, error) {
+	vlt := makeVideoLumpTemp2{}
 	dirFIs, err := os.ReadDir(inFramesDirectory)
 	if err != nil {
 		return vlt, errors.Wrap(err, "os error")
@@ -69,10 +69,10 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 	if err != nil {
 		return vlt, errors.Wrap(err, "os error")
 	}
-	uniqueFrames := make([]UniqueFrameDetailsNoHash, 0) //first frame no and the size
+	uniqueFrames := make([]uniqueFrameDetails, 0) //first frame no and the size
 	framesPointer := make(map[int]int)
 
-	checkForUniqueness := func(uniqueFrames []UniqueFrameDetailsNoHash, framePath string) (UniqueFrameDetailsNoHash, error) {
+	checkForUniqueness := func(uniqueFrames []uniqueFrameDetails, framePath string) (uniqueFrameDetails, error) {
 		rawCurrentFrame, _ := os.ReadFile(framePath)
 
 		for _, uniqueFrameDetail := range uniqueFrames {
@@ -83,7 +83,7 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 			}
 		}
 
-		return UniqueFrameDetailsNoHash{}, errors.New("frame not found")
+		return uniqueFrameDetails{}, errors.New("frame not found")
 	}
 
 	for _, inFrameNumber := range inFrameNumbers {
@@ -101,13 +101,13 @@ func makeFramesLumpFile(inFramesDirectory, outFilePath string) (MakeVideoLumpTem
 			if err != nil {
 				return vlt, errors.Wrap(err, "io error")
 			}
-			uniqueFrames = append(uniqueFrames, UniqueFrameDetailsNoHash{inFrameNumber, int(writtenSize), currentFramePath})
+			uniqueFrames = append(uniqueFrames, uniqueFrameDetails{inFrameNumber, int(writtenSize), currentFramePath})
 			framesPointer[inFrameNumber] = inFrameNumber
 		}
 	}
 	outFileHandle.Close()
 
-	return MakeVideoLumpTemp2{uniqueFrames, framesPointer}, nil
+	return makeVideoLumpTemp2{uniqueFrames, framesPointer}, nil
 }
 
 // MakeVideo is good for videos with a lot of stills eg. lyrics videos with a single background.
